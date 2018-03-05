@@ -42,13 +42,10 @@ void ParticleFilter::init(double gps_x, double gps_y, double theta, double std[]
     particles[i].x = dist_x(gen);
     particles[i].y = dist_y(gen);
     particles[i].theta = dist_theta(gen);
-    particles[i].weight = 0.0001;
-
-    cout << particles[i].x << ',' << particles[i].y << endl << "------------------------------------\n";
+    particles[i].weight = 1;
   }
 
   is_initialized = true;
-  exit(0);
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
