@@ -68,6 +68,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 //   implement this method and use it as a helper during the updateWeights phase.
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> landmarks_visible_to_particle,
                                      std::vector<LandmarkObs>& trans_observations) {
+  cout << endl << endl;
 
   for(unsigned long i = 0; i < trans_observations.size(); ++i) {
 
@@ -81,6 +82,8 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> landmarks_visible_
                                  landmarks_visible_to_particle[j].x,
                                  landmarks_visible_to_particle[j].y);
 
+      cout << "landmark, j, dist = " << landmarks_visible_to_particle[j].x << "," << landmarks_visible_to_particle[j].y << "," << j << "," << current_dist << endl;
+
       if(current_dist < current_min) {
         current_min = current_dist;
         min_index = j;
@@ -88,7 +91,11 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> landmarks_visible_
     }
 
     trans_observations[i].id = min_index;
+    cout << "observation and nearest = " << trans_observations[i].x << "," << trans_observations[i].y << endl;
+    cout << "landmark, j = " << landmarks_visible_to_particle[min_index].x << "," << landmarks_visible_to_particle[min_index].y << ", "<< min_index << endl;
   }
+
+  cout << endl << endl;
 }
 
 // TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
@@ -167,8 +174,8 @@ void ParticleFilter::updateWeights(double sensor_range,
                      2);
 
       cout << "x, y = " + to_string(x) + ", " + to_string(y) << endl;
-      double exponent1 = (x / (2 * pow(std_landmark[0], 2)));
-      double exponent2 = (y / (2 * pow(std_landmark[1], 2)));
+      double exponent1 = (x / (2 * pow(std_x, 2)));
+      double exponent2 = (y / (2 * pow(std_y, 2)));
       cout << "exp1, exp2 = " + to_string(exponent1) + ", " + to_string(exponent2) << endl;
       double exponent = (exponent1 + exponent2);
       double weight = gaussian_norm * exp(-exponent);
