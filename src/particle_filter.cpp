@@ -14,10 +14,10 @@
 #include <sstream>
 #include <string>
 #include <iterator>
-
 #include "particle_filter.h"
-double INIT_PARTICLE_WEIGHT = 1.0;
 
+const double INIT_PARTICLE_WEIGHT = 1.0;
+const double MIN_YAW = 1e-6;
 using namespace std;
 
 // TODO: Set the number of particles. Initialize all particles to first position (based on estimates of
@@ -35,11 +35,14 @@ void ParticleFilter::init(double gps_x, double gps_y, double theta, double std[]
   normal_distribution<double> dist_theta(theta, std[2]);
 
   for(int i = 0; i < num_particles; ++i) {
-    particles[i].id = i;
-    particles[i].x = dist_x(gen);
-    particles[i].y = dist_y(gen);
-    particles[i].theta = dist_theta(gen);
-    particles[i].weight = INIT_PARTICLE_WEIGHT;
+    Particle p;
+    p.id = i;
+    p.x = dist_x(gen);
+    p.y = dist_y(gen);
+    p.theta = dist_theta(gen);
+    p.weight = INIT_PARTICLE_WEIGHT;
+    particles[i] = p;
+    weights[i] = p.weight;
   }
 
   is_initialized = true;
@@ -54,11 +57,24 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   normal_distribution<double> dist_x(0, std_pos[0]);
   normal_distribution<double> dist_y(0, std_pos[1]);
   normal_distribution<double> dist_theta(0, std_pos[2]);
+  double vel_by_yaw = velocity / yaw_rate;
 
   for(int i = 0; i < num_particles; ++i) {
-    particles[i].x += (velocity / yaw_rate) * (sin(particles[i].theta + (yaw_rate * delta_t)) - sin(particles[i].theta)) + dist_x(gen);
-    particles[i].y += (velocity / yaw_rate) * (cos(particles[i].theta) - cos(particles[i].theta + (yaw_rate * delta_t))) + dist_y(gen);
-    particles[i].theta += (yaw_rate * delta_t) + dist_theta(gen);
+    Particle *p = &particles[i];
+
+    if(fabs(yaw_rate) < MIN_YAW) {
+      p->x += velocity * delta_t * cos(p->theta);
+      p->y += velocity * delta_t * sin(p->theta);
+    } else {
+      double theta = p->theta + yaw_rate * delta_t;
+      p->x += vel_by_yaw * (sin(theta) - sin(p->theta));
+      p->y += vel_by_yaw * (cos(p->theta) - cos(theta));
+      p->theta = theta;
+    }
+
+    p->x += dist_x(gen);
+    p->y += dist_y(gen);
+    p->theta += dist_theta(gen);
   }
 }
 
