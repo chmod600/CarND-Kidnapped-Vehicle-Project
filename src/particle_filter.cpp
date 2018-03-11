@@ -77,7 +77,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted,
     double current_min = 999999.0;
     unsigned long min_index;
 
-    for(unsigned long j = 0; j < predicted.size(): ++j) {
+    for(unsigned long j = 0; j < predicted.size(); ++j) {
       double dist_x = pow((predicted[j].x - observations[i].x), 2.0);
       double dist_y = pow((predicted[j].y - observations[i].y), 2.0);
       double dist = sqrt(dist_x + dist_y);
