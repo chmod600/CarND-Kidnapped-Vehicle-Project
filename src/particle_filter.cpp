@@ -83,7 +83,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> landmarks_visible_
 
       if(current_dist < current_min) {
         current_min = current_dist;
-        min_index = landmarks_visible_to_particle[j].id;
+        min_index = j;
       }
     }
 
@@ -107,7 +107,7 @@ void ParticleFilter::updateWeights(double sensor_range,
   // 1. Convert observations from Car Co-ordinates to Map Co-ordinates.
   std::vector<LandmarkObs> trans_observations;
   std::vector<LandmarkObs> landmarks_visible_to_particle;
-  double w_deno = 1 / (2 * M_PI * std_landmark[0] * std_landmark[1]);
+  double gaussian_norm = (1 / (2 * M_PI * std_landmark[0] * std_landmark[1]));
 
   for(unsigned int i = 0; i < particles.size(); ++i) {
 
@@ -151,15 +151,19 @@ void ParticleFilter::updateWeights(double sensor_range,
     // Associate closest landmark out of the ones that the car sees
     dataAssociation(landmarks_visible_to_particle, trans_observations);
 
-    double particle_weight = INIT_PARTICLE_WEIGHT;
-
+    double particle_weight = particles[i].weight;
     for(unsigned int j = 0; j < trans_observations.size(); ++j) {
-      double x = trans_observations[j].x - landmarks_visible_to_particle[j].x;
-      double y = trans_observations[j].y - landmarks_visible_to_particle[j].y;
-      double exponent1 = (pow(x, 2) / (2 * pow(std_landmark[0], 2)));
-      double exponent2 = (pow(y, 2) / (2 * pow(std_landmark[1], 2)));
-      double exponent = - (exponent1 + exponent2);
-      double weight = w_deno * exp(exponent);
+      LandmarkObs closest_landmark = landmarks_visible_to_particle[trans_observations[i].id];
+
+      double x = pow((trans_observations[j].x - closest_landmark.x),
+                     2);
+      double y = pow((trans_observations[j].y - closest_landmark.y),
+                     2);
+
+      double exponent1 = (x / (2 * pow(std_landmark[0], 2)));
+      double exponent2 = (y / (2 * pow(std_landmark[1], 2)));
+      double exponent = (exponent1 + exponent2);
+      double weight = gaussian_norm * exp(-exponent);
       particle_weight *= weight;
     }
 
@@ -168,10 +172,10 @@ void ParticleFilter::updateWeights(double sensor_range,
   } // For each particle
 }
 
+// TODO: Resample particles with replacement with probability proportional to their weight.
+// NOTE: You may find std::discrete_distribution helpful here.
+//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
 void ParticleFilter::resample() {
-  // TODO: Resample particles with replacement with probability proportional to their weight.
-  // NOTE: You may find std::discrete_distribution helpful here.
-  //   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
   vector<Particle> resampled_particles;
   default_random_engine gen;
   discrete_distribution<int> index(weights.begin(), weights.end());
