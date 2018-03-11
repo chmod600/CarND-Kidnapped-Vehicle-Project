@@ -16,6 +16,7 @@
 #include <iterator>
 
 #include "particle_filter.h"
+double INIT_PARTICLE_WEIGHT = 0.0;
 
 using namespace std;
 
@@ -38,7 +39,7 @@ void ParticleFilter::init(double gps_x, double gps_y, double theta, double std[]
     particles[i].x = dist_x(gen);
     particles[i].y = dist_y(gen);
     particles[i].theta = dist_theta(gen);
-    particles[i].weight = 1.0;
+    particles[i].weight = INIT_PARTICLE_WEIGHT;
   }
 
   is_initialized = true;
@@ -106,7 +107,6 @@ void ParticleFilter::updateWeights(double sensor_range,
   // 1. Convert observations from Car Co-ordinates to Map Co-ordinates.
   std::vector<LandmarkObs> trans_observations;
   std::vector<LandmarkObs> landmarks_within_range;
-
   double w_deno = 1 / (2 * M_PI * std_landmark[0] * std_landmark[1]);
 
   for(unsigned int i = 0; i < particles.size(); ++i) {
@@ -131,18 +131,16 @@ void ParticleFilter::updateWeights(double sensor_range,
     // 2. Associate each observation with landmark (use dataAssociation function above)
     // Map Landmarks are ground truth
     for(unsigned int j = 0; j < map_landmarks.landmark_list.size(); ++j) {
-      double lm_x = map_landmarks.landmark_list[j].x_f;
-      double lm_y = map_landmarks.landmark_list[j].y_f;
+      double _dist = dist(map_landmarks.landmark_list[j].x_f,
+                          map_landmarks.landmark_list[j].y_f,
+                          particles[i].x,
+                          particles[i].y);
 
-      double dist_x = lm_x - particles[i].x;
-      double dist_y = lm_y - particles[i].y;
-      double dist = sqrt(pow(dist_x, 2) + pow(dist_y, 2));
-
-      if (dist < sensor_range) {
+      if (_dist < sensor_range) {
         LandmarkObs landmark_within_range = {
           map_landmarks.landmark_list[j].id_i,
-          lm_x,
-          lm_y,
+          map_landmarks.landmark_list[j].x_f,
+          map_landmarks.landmark_list[j].y_f,
         };
 
         landmarks_within_range.push_back(landmark_within_range);
@@ -150,7 +148,7 @@ void ParticleFilter::updateWeights(double sensor_range,
     }
 
     dataAssociation(landmarks_within_range, trans_observations);
-    double particle_weight = 1;
+    double particle_weight = INIT_PARTICLE_WEIGHT;
 
     for(unsigned int j = 0; j < trans_observations.size(); ++j) {
       double x = trans_observations[j].x - landmarks_within_range[j].x;
@@ -158,7 +156,7 @@ void ParticleFilter::updateWeights(double sensor_range,
       double exponent1 = (pow(x, 2) / (2 * pow(std_landmark[0], 2)));
       double exponent2 = (pow(y, 2) / (2 * pow(std_landmark[1], 2)));
       double exponent = - (exponent1 + exponent2);
-      double weight = w_deno * exp(-exponent);
+      double weight = w_deno * exp(exponent);
       particle_weight *= weight;
     }
 
