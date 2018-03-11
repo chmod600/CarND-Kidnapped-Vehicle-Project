@@ -16,7 +16,7 @@
 #include <iterator>
 
 #include "particle_filter.h"
-double INIT_PARTICLE_WEIGHT = 0.0;
+double INIT_PARTICLE_WEIGHT = 1.0;
 
 using namespace std;
 
@@ -200,6 +200,7 @@ Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<i
   particle.associations= associations;
   particle.sense_x = sense_x;
   particle.sense_y = sense_y;
+  return particle;
 }
 
 string ParticleFilter::getAssociations(Particle best)
