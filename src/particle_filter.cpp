@@ -66,7 +66,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
       p->x += velocity * delta_t * cos(p->theta);
       p->y += velocity * delta_t * sin(p->theta);
     } else {
-      double theta = p->theta + yaw_rate * delta_t;
+      double theta = p->theta + yaw_rate * delta_t; // updated theta
       p->x += vel_by_yaw * (sin(theta) - sin(p->theta));
       p->y += vel_by_yaw * (cos(p->theta) - cos(theta));
       p->theta = theta;
@@ -84,11 +84,11 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 //   implement this method and use it as a helper during the updateWeights phase.
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> landmarks_visible_to_particle,
                                      std::vector<LandmarkObs>& trans_observations) {
-  cout << endl << endl;
+  //  cout << endl << endl;
 
   for(unsigned long i = 0; i < trans_observations.size(); ++i) {
 
-    double current_min = 999999.0;
+    double current_min = numeric_limits<double>::max();
     unsigned int min_index = -1;
 
     for(unsigned long j = 0; j < landmarks_visible_to_particle.size(); ++j) {
@@ -98,7 +98,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> landmarks_visible_
                                  landmarks_visible_to_particle[j].x,
                                  landmarks_visible_to_particle[j].y);
 
-      cout << "landmark, j, dist = " << landmarks_visible_to_particle[j].x << "," << landmarks_visible_to_particle[j].y << "," << j << "," << current_dist << endl;
+      //cout << "landmark, j, dist = " << landmarks_visible_to_particle[j].x << "," << landmarks_visible_to_particle[j].y << "," << j << "," << current_dist << endl;
 
       if(current_dist < current_min) {
         current_min = current_dist;
@@ -107,11 +107,11 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> landmarks_visible_
     }
 
     trans_observations[i].id = min_index;
-    cout << "observation and nearest = " << trans_observations[i].x << "," << trans_observations[i].y << endl;
-    cout << "landmark, j = " << landmarks_visible_to_particle[min_index].x << "," << landmarks_visible_to_particle[min_index].y << ", "<< min_index << endl;
+    //    cout << "observation and nearest = " << trans_observations[i].x << "," << trans_observations[i].y << endl;
+    //    cout << "landmark, j = " << landmarks_visible_to_particle[min_index].x << "," << landmarks_visible_to_particle[min_index].y << ", "<< min_index << endl;
   }
 
-  cout << endl << endl;
+  //  cout << endl << endl;
 }
 
 // TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
@@ -133,78 +133,49 @@ void ParticleFilter::updateWeights(double sensor_range,
   double std_x = std_landmark[0];
   double std_y = std_landmark[1];
   double gaussian_norm = (1 / (2 * M_PI * std_x * std_y));
-  cout << "stds " << std_x << "," << std_y << endl;
+  double sum_of_weights = 0.0;
 
   for(unsigned int i = 0; i < particles.size(); ++i) {
+    Particle *p = &particles[i];
+    double weight = 1.0;
 
-    // Find out which landmarks are visible to particle
-    for(unsigned int j = 0; j < map_landmarks.landmark_list.size(); ++j) {
-      double _dist = dist(map_landmarks.landmark_list[j].x_f,
-                          map_landmarks.landmark_list[j].y_f,
-                          particles[i].x,
-                          particles[i].y);
+    for(unsigned int j = 0; j < observations.size(); ++j) {
+      LandmarkObs obs;
+      LandmarkObs trans_obs;
 
-      if (_dist < sensor_range) {
-        LandmarkObs landmark_within_range = {
-          map_landmarks.landmark_list[j].id_i,
-          map_landmarks.landmark_list[j].x_f,
-          map_landmarks.landmark_list[j].y_f,
-        };
+      trans_obs.x = p->x + (obs.x * cos(p->theta)) - (obs.y * sin(p->theta));
+      trans_obs.y = p->y + (obs.x * sin(p->theta)) + (obs.y * cos(p->theta));
+      trans_obs.id = obs.id;
 
-        landmarks_visible_to_particle.push_back(landmark_within_range);
+      Map::single_landmark_s closest_lm;
+      double dist_min = numeric_limits<double>::max();
+
+      for(unsigned int k = 0; k < map_landmarks.landmark_list.size(); ++k) {
+        Map::single_landmark_s current_lm = map_landmarks.landmark_list[k];
+        double _dist = dist(trans_obs.x, trans_obs.y, current_lm.x_f, current_lm.y_f);
+        if(_dist < dist_min) {
+          dist_min = _dist;
+          closest_lm = current_lm;
+        }
       }
-    }
 
-    // Convert what car sees (observations) to particle's frame of reference
-    for(unsigned j = 0; j < observations.size(); ++j) {
-      double trans_x = particles[i].x +
-        (cos(particles[i].theta) * observations[j].x) -
-        (sin(particles[i].theta) * observations[j].y);
+      // Now using closest lm and trans_obs, update weights using
+      // Multivariate Gaussian Distribution
+      double x = pow((trans_obs.x - closest_lm.x_f), 2) / (2 * pow(std_x, 2));
+      double y = pow((trans_obs.y - closest_lm.y_f), 2) / (2 * pow(std_y, 2));
+      double exponent = exp(-(x + y));
+      weight *= gaussian_norm * exponent;
+    } // for each observation
 
-      double trans_y = particles[i].y +
-        (sin(particles[i].theta) * observations[j].x) -
-        (cos(particles[i].theta) * observations[j].y);
-
-      LandmarkObs trans_observation = {
-        observations[j].id,
-        trans_x,
-        trans_y,
-      };
-
-      trans_observations.push_back(trans_observation);
-    }
-
-    // Associate closest landmark out of the ones that the car sees
-    dataAssociation(landmarks_visible_to_particle, trans_observations);
-
-    double particle_weight = particles[i].weight;
-    for(unsigned int j = 0; j < trans_observations.size(); ++j) {
-      LandmarkObs closest_landmark = landmarks_visible_to_particle[trans_observations[i].id];
-
-      cout << "trans_obser = " << trans_observations[j].x << "," << trans_observations[j].y << endl;
-      cout << "closest = " << closest_landmark.x << "," << closest_landmark.y << endl;
-
-      double x = pow((trans_observations[j].x - closest_landmark.x),
-                     2);
-      double y = pow((trans_observations[j].y - closest_landmark.y),
-                     2);
-
-      cout << "x, y = " + to_string(x) + ", " + to_string(y) << endl;
-      double exponent1 = (x / (2 * pow(std_x, 2)));
-      double exponent2 = (y / (2 * pow(std_y, 2)));
-      cout << "exp1, exp2 = " + to_string(exponent1) + ", " + to_string(exponent2) << endl;
-      double exponent = (exponent1 + exponent2);
-      double weight = gaussian_norm * exp(-exponent);
-      cout << "exp, norm, weight" + to_string(exponent) + ", " + to_string(gaussian_norm) + "," + to_string(weight) << endl;
-
-      particle_weight *= weight;
-    }
-
-    particles[i].weight = particle_weight;
-
-    weights[i] = particle_weight;
-    exit(0);
+    sum_of_weights += weight;
+    p->weight = weight;
   } // For each particle
+
+  for(int i = 0; i < num_particles; ++i) {
+    Particle *p = &particles[i];
+    p->weight /= sum_of_weights;
+    weights[i] = p->weight;
+  }
 }
 
 // TODO: Resample particles with replacement with probability proportional to their weight.
