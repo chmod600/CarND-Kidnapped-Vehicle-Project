@@ -107,7 +107,10 @@ void ParticleFilter::updateWeights(double sensor_range,
   // 1. Convert observations from Car Co-ordinates to Map Co-ordinates.
   std::vector<LandmarkObs> trans_observations;
   std::vector<LandmarkObs> landmarks_visible_to_particle;
-  double gaussian_norm = (1 / (2 * M_PI * std_landmark[0] * std_landmark[1]));
+  double std_x = std_landmark[0];
+  double std_y = std_landmark[1];
+  double gaussian_norm = (1 / (2 * M_PI * std_x * std_y));
+  cout << "stds " << std_x << "," << std_y << endl;
 
   for(unsigned int i = 0; i < particles.size(); ++i) {
 
@@ -155,20 +158,29 @@ void ParticleFilter::updateWeights(double sensor_range,
     for(unsigned int j = 0; j < trans_observations.size(); ++j) {
       LandmarkObs closest_landmark = landmarks_visible_to_particle[trans_observations[i].id];
 
+      cout << "trans_obser = " << trans_observations[j].x << "," << trans_observations[j].y << endl;
+      cout << "closest = " << closest_landmark.x << "," << closest_landmark.y << endl;
+
       double x = pow((trans_observations[j].x - closest_landmark.x),
                      2);
       double y = pow((trans_observations[j].y - closest_landmark.y),
                      2);
 
+      cout << "x, y = " + to_string(x) + ", " + to_string(y) << endl;
       double exponent1 = (x / (2 * pow(std_landmark[0], 2)));
       double exponent2 = (y / (2 * pow(std_landmark[1], 2)));
+      cout << "exp1, exp2 = " + to_string(exponent1) + ", " + to_string(exponent2) << endl;
       double exponent = (exponent1 + exponent2);
       double weight = gaussian_norm * exp(-exponent);
+      cout << "exp, norm, weight" + to_string(exponent) + ", " + to_string(gaussian_norm) + "," + to_string(weight) << endl;
+
       particle_weight *= weight;
     }
 
     particles[i].weight = particle_weight;
+
     weights[i] = particle_weight;
+    exit(0);
   } // For each particle
 }
 
