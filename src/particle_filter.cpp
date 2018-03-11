@@ -19,41 +19,36 @@
 
 using namespace std;
 
+// TODO: Set the number of particles. Initialize all particles to first position (based on estimates of
+//   x, y, theta and their uncertainties from GPS) and all weights to 1.
+// Add random Gaussian noise to each particle.
+// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 void ParticleFilter::init(double gps_x, double gps_y, double theta, double std[]) {
-  // TODO: Set the number of particles. Initialize all particles to first position (based on estimates of
-  //   x, y, theta and their uncertainties from GPS) and all weights to 1.
-  // Add random Gaussian noise to each particle.
-  // NOTE: Consult particle_filter.h for more information about this method (and others in this file).
-  num_particles = 10;
+  num_particles = 100;
   particles.resize(num_particles);
   weights.resize(num_particles);
+
   default_random_engine gen;
-  double std_x, std_y, std_theta;
-
-  std_x = std[0];
-  std_y = std[1];
-  std_theta = std[2];
-
-  normal_distribution<double> dist_x(gps_x, std_x);
-  normal_distribution<double> dist_y(gps_y, std_y);
-  normal_distribution<double> dist_theta(theta, std_theta);
+  normal_distribution<double> dist_x(gps_x, std[0]);
+  normal_distribution<double> dist_y(gps_y, std[1]);
+  normal_distribution<double> dist_theta(theta, std[2]);
 
   for(int i = 0; i < num_particles; ++i) {
     particles[i].id = i;
     particles[i].x = dist_x(gen);
     particles[i].y = dist_y(gen);
     particles[i].theta = dist_theta(gen);
-    particles[i].weight = 1;
+    particles[i].weight = 1.0;
   }
 
   is_initialized = true;
 }
 
+// TODO: Add measurements to each particle and add random Gaussian noise.
+// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
+//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
+//  http://www.cplusplus.com/reference/random/default_random_engine/
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
-  // TODO: Add measurements to each particle and add random Gaussian noise.
-  // NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
-  //  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
-  //  http://www.cplusplus.com/reference/random/default_random_engine/
   default_random_engine gen;
   normal_distribution<double> dist_x(0, std_pos[0]);
   normal_distribution<double> dist_y(0, std_pos[1]);
@@ -66,26 +61,28 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   }
 }
 
+// TODO: Find the predicted measurement that is closest to each observed measurement and assign the
+//   observed measurement to this particular landmark.
+// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to
+//   implement this method and use it as a helper during the updateWeights phase.
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted,
                                      std::vector<LandmarkObs>& observations) {
 
-  // TODO: Find the predicted measurement that is closest to each observed measurement and assign the
-  //   observed measurement to this particular landmark.
-  // NOTE: this method will NOT be called by the grading code. But you will probably find it useful to
-  //   implement this method and use it as a helper during the updateWeights phase.
   for(unsigned long i = 0; i < observations.size(); ++i) {
 
     double current_min = 999999.0;
     unsigned long min_index;
 
     for(unsigned long j = 0; j < predicted.size(); ++j) {
-      double dist_x = pow((predicted[j].x - observations[i].x), 2.0);
-      double dist_y = pow((predicted[j].y - observations[i].y), 2.0);
-      double dist = sqrt(dist_x + dist_y);
+      double current_dist = dist(observations[i].x,
+                                 observations[i].y,
+                                 predicted[j].x,
+                                 predicted[j].y);
 
-      if(dist < current_min) {
-        min_index = j;
-        current_min = dist;
+
+      if(current_dist < current_min) {
+        min_index = predicted[j].id;
+        current_min = current_dist;
       }
     }
 
