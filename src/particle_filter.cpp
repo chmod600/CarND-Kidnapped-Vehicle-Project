@@ -17,6 +17,7 @@
 
 #include "particle_filter.h"
 double INIT_PARTICLE_WEIGHT = 1.0;
+int NUM_PARTICLES = 1;
 
 using namespace std;
 
@@ -25,7 +26,8 @@ using namespace std;
 // Add random Gaussian noise to each particle.
 // NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 void ParticleFilter::init(double gps_x, double gps_y, double theta, double std[]) {
-  num_particles = 100;
+  cout << "init" << endl;
+  num_particles = NUM_PARTICLES;
   particles.resize(num_particles);
   weights.resize(num_particles);
 
@@ -50,6 +52,8 @@ void ParticleFilter::init(double gps_x, double gps_y, double theta, double std[]
 //  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 //  http://www.cplusplus.com/reference/random/default_random_engine/
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
+  cout << "predict" << endl;
+
   default_random_engine gen;
   normal_distribution<double> dist_x(0, std_pos[0]);
   normal_distribution<double> dist_y(0, std_pos[1]);
@@ -68,6 +72,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 //   implement this method and use it as a helper during the updateWeights phase.
 void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted,
                                      std::vector<LandmarkObs>& observations) {
+  cout << "data assoc" << endl;
 
   for(unsigned long i = 0; i < observations.size(); ++i) {
 
@@ -89,6 +94,9 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted,
 
     observations[i].id = min_index;
   }
+
+  cout << "data assoc end " << endl;
+
 }
 
 // TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
@@ -103,6 +111,8 @@ void ParticleFilter::updateWeights(double sensor_range,
                                    double std_landmark[],
                                    const std::vector<LandmarkObs> &observations,
                                    const Map &map_landmarks) {
+
+  cout << "update " << endl;
 
   // 1. Convert observations from Car Co-ordinates to Map Co-ordinates.
   std::vector<LandmarkObs> trans_observations;
@@ -148,24 +158,32 @@ void ParticleFilter::updateWeights(double sensor_range,
     }
 
     dataAssociation(landmarks_within_range, trans_observations);
+    cout << "After data assoc" << i <<  endl ;
     double particle_weight = INIT_PARTICLE_WEIGHT;
 
     for(unsigned int j = 0; j < trans_observations.size(); ++j) {
       double x = trans_observations[j].x - landmarks_within_range[j].x;
       double y = trans_observations[j].y - landmarks_within_range[j].y;
+
       double exponent1 = (pow(x, 2) / (2 * pow(std_landmark[0], 2)));
       double exponent2 = (pow(y, 2) / (2 * pow(std_landmark[1], 2)));
       double exponent = - (exponent1 + exponent2);
+
       double weight = w_deno * exp(exponent);
+
       particle_weight *= weight;
+      cout << "Weight " << particle_weight << endl;
+      cout << "After data assoc loop" << j <<  endl ;
     }
 
     particles[i].weight = particle_weight;
     weights[i] = particle_weight;
+    // cout << particles[i].x << ", " << particles[i].y << ", " << particles[i].weight << endl << endl;
   } // For each particle
 }
 
 void ParticleFilter::resample() {
+  cout << "resample" << endl;
   // TODO: Resample particles with replacement with probability proportional to their weight.
   // NOTE: You may find std::discrete_distribution helpful here.
   //   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
