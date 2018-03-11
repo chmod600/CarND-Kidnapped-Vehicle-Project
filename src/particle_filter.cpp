@@ -24,8 +24,9 @@ void ParticleFilter::init(double gps_x, double gps_y, double theta, double std[]
   //   x, y, theta and their uncertainties from GPS) and all weights to 1.
   // Add random Gaussian noise to each particle.
   // NOTE: Consult particle_filter.h for more information about this method (and others in this file).
-  num_particles = 50;
+  num_particles = 10;
   particles.resize(num_particles);
+  weights.resize(num_particles);
   default_random_engine gen;
   double std_x, std_y, std_theta;
 
@@ -113,7 +114,6 @@ void ParticleFilter::updateWeights(double sensor_range,
 
   for(unsigned int i = 0; i < particles.size(); ++i) {
     for(unsigned j = 0; j < observations.size(); ++j) {
-
       double trans_x = particles[i].x +
         (cos(particles[i].theta) * observations[j].x) -
         (sin(particles[i].theta) * observations[j].y);
@@ -123,7 +123,7 @@ void ParticleFilter::updateWeights(double sensor_range,
         (cos(particles[i].theta) * observations[j].y);
 
       LandmarkObs trans_observation = {
-        observations[i].id,
+        observations[j].id,
         trans_x,
         trans_y,
       };
@@ -153,7 +153,6 @@ void ParticleFilter::updateWeights(double sensor_range,
     }
 
     dataAssociation(landmarks_within_range, trans_observations);
-
     double particle_weight = 1;
 
     for(unsigned int j = 0; j < trans_observations.size(); ++j) {
@@ -175,7 +174,24 @@ void ParticleFilter::resample() {
   // TODO: Resample particles with replacement with probability proportional to their weight.
   // NOTE: You may find std::discrete_distribution helpful here.
   //   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
+  vector<Particle> resampled_particles;
+  default_random_engine gen;
+  discrete_distribution<int> index(weights.begin(), weights.end());
 
+  for(unsigned int i = 0; i < particles.size(); ++i) {
+    int j = index(gen);
+    Particle p {
+      j,
+      particles[j].x,
+      particles[j].y,
+      particles[i].theta,
+      1
+    };
+
+    resampled_particles.push_back(p);
+  }
+
+  particles = resampled_particles;
 }
 
 Particle ParticleFilter::SetAssociations(Particle& particle, const std::vector<int>& associations,
