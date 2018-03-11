@@ -66,28 +66,28 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 //   observed measurement to this particular landmark.
 // NOTE: this method will NOT be called by the grading code. But you will probably find it useful to
 //   implement this method and use it as a helper during the updateWeights phase.
-void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted,
-                                     std::vector<LandmarkObs>& observations) {
+void ParticleFilter::dataAssociation(std::vector<LandmarkObs> landmarks_visible_to_particle,
+                                     std::vector<LandmarkObs>& trans_observations) {
 
-  for(unsigned long i = 0; i < observations.size(); ++i) {
+  for(unsigned long i = 0; i < trans_observations.size(); ++i) {
 
     double current_min = 999999.0;
-    unsigned long min_index;
+    unsigned int min_index = -1;
 
-    for(unsigned long j = 0; j < predicted.size(); ++j) {
-      double current_dist = dist(observations[i].x,
-                                 observations[i].y,
-                                 predicted[j].x,
-                                 predicted[j].y);
+    for(unsigned long j = 0; j < landmarks_visible_to_particle.size(); ++j) {
 
+      double current_dist = dist(trans_observations[i].x,
+                                 trans_observations[i].y,
+                                 landmarks_visible_to_particle[j].x,
+                                 landmarks_visible_to_particle[j].y);
 
       if(current_dist < current_min) {
-        min_index = predicted[j].id;
         current_min = current_dist;
+        min_index = landmarks_visible_to_particle[j].id;
       }
     }
 
-    observations[i].id = min_index;
+    trans_observations[i].id = min_index;
   }
 }
 
@@ -106,10 +106,30 @@ void ParticleFilter::updateWeights(double sensor_range,
 
   // 1. Convert observations from Car Co-ordinates to Map Co-ordinates.
   std::vector<LandmarkObs> trans_observations;
-  std::vector<LandmarkObs> landmarks_within_range;
+  std::vector<LandmarkObs> landmarks_visible_to_particle;
   double w_deno = 1 / (2 * M_PI * std_landmark[0] * std_landmark[1]);
 
   for(unsigned int i = 0; i < particles.size(); ++i) {
+
+    // Find out which landmarks are visible to particle
+    for(unsigned int j = 0; j < map_landmarks.landmark_list.size(); ++j) {
+      double _dist = dist(map_landmarks.landmark_list[j].x_f,
+                          map_landmarks.landmark_list[j].y_f,
+                          particles[i].x,
+                          particles[i].y);
+
+      if (_dist < sensor_range) {
+        LandmarkObs landmark_within_range = {
+          map_landmarks.landmark_list[j].id_i,
+          map_landmarks.landmark_list[j].x_f,
+          map_landmarks.landmark_list[j].y_f,
+        };
+
+        landmarks_visible_to_particle.push_back(landmark_within_range);
+      }
+    }
+
+    // Convert what car sees (observations) to particle's frame of reference
     for(unsigned j = 0; j < observations.size(); ++j) {
       double trans_x = particles[i].x +
         (cos(particles[i].theta) * observations[j].x) -
@@ -128,31 +148,14 @@ void ParticleFilter::updateWeights(double sensor_range,
       trans_observations.push_back(trans_observation);
     }
 
-    // 2. Associate each observation with landmark (use dataAssociation function above)
-    // Map Landmarks are ground truth
-    for(unsigned int j = 0; j < map_landmarks.landmark_list.size(); ++j) {
-      double _dist = dist(map_landmarks.landmark_list[j].x_f,
-                          map_landmarks.landmark_list[j].y_f,
-                          particles[i].x,
-                          particles[i].y);
+    // Associate closest landmark out of the ones that the car sees
+    dataAssociation(landmarks_visible_to_particle, trans_observations);
 
-      if (_dist < sensor_range) {
-        LandmarkObs landmark_within_range = {
-          map_landmarks.landmark_list[j].id_i,
-          map_landmarks.landmark_list[j].x_f,
-          map_landmarks.landmark_list[j].y_f,
-        };
-
-        landmarks_within_range.push_back(landmark_within_range);
-      }
-    }
-
-    dataAssociation(landmarks_within_range, trans_observations);
     double particle_weight = INIT_PARTICLE_WEIGHT;
 
     for(unsigned int j = 0; j < trans_observations.size(); ++j) {
-      double x = trans_observations[j].x - landmarks_within_range[j].x;
-      double y = trans_observations[j].y - landmarks_within_range[j].y;
+      double x = trans_observations[j].x - landmarks_visible_to_particle[j].x;
+      double y = trans_observations[j].y - landmarks_visible_to_particle[j].y;
       double exponent1 = (pow(x, 2) / (2 * pow(std_landmark[0], 2)));
       double exponent2 = (pow(y, 2) / (2 * pow(std_landmark[1], 2)));
       double exponent = - (exponent1 + exponent2);
