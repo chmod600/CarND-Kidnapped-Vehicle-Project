@@ -92,20 +92,83 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted,
   }
 }
 
+// TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
+//   more about this distribution here: https://en.wikipedia.org/wiki/Multivariate_normal_distribution
+//   Keep in mind that this transformation requires both rotation AND translation (but no scaling).
+//   The following is a good resource for the theory:
+//   https://www.willamette.edu/~gorr/classes/GeneralGraphics/Transforms/transforms2d.htm
+//   and the following is a good resource for the actual equation to implement (look at equation
+//   3.33
+//   http://planning.cs.uiuc.edu/node99.html
 void ParticleFilter::updateWeights(double sensor_range,
                                    double std_landmark[],
                                    const std::vector<LandmarkObs> &observations,
                                    const Map &map_landmarks) {
-  // TODO: Update the weights of each particle using a mult-variate Gaussian distribution. You can read
-  //   more about this distribution here: https://en.wikipedia.org/wiki/Multivariate_normal_distribution
-  // NOTE: The observations are given in the VEHICLE'S coordinate system. Your particles are located
-  //   according to the MAP'S coordinate system. You will need to transform between the two systems.
-  //   Keep in mind that this transformation requires both rotation AND translation (but no scaling).
-  //   The following is a good resource for the theory:
-  //   https://www.willamette.edu/~gorr/classes/GeneralGraphics/Transforms/transforms2d.htm
-  //   and the following is a good resource for the actual equation to implement (look at equation
-  //   3.33
-  //   http://planning.cs.uiuc.edu/node99.html
+
+  // 1. Convert observations from Car Co-ordinates to Map Co-ordinates.
+  std::vector<LandmarkObs> trans_observations;
+  std::vector<LandmarkObs> landmarks_within_range;
+
+  double w_deno = 1 / (2 * M_PI * std_landmark[0] * std_landmark[1]);
+
+  for(unsigned int i = 0; i < particles.size(); ++i) {
+    for(unsigned j = 0; j < observations.size(); ++j) {
+
+      double trans_x = particles[i].x +
+        (cos(particles[i].theta) * observations[j].x) -
+        (sin(particles[i].theta) * observations[j].y);
+
+      double trans_y = particles[i].y +
+        (sin(particles[i].theta) * observations[j].x) -
+        (cos(particles[i].theta) * observations[j].y);
+
+      LandmarkObs trans_observation = {
+        observations[i].id,
+        trans_x,
+        trans_y,
+      };
+
+      trans_observations.push_back(trans_observation);
+    }
+
+    // 2. Associate each observation with landmark (use dataAssociation function above)
+    // Map Landmarks are ground truth
+    for(unsigned int j = 0; j < map_landmarks.landmark_list.size(); ++j) {
+      double lm_x = map_landmarks.landmark_list[j].x_f;
+      double lm_y = map_landmarks.landmark_list[j].y_f;
+
+      double dist_x = lm_x - particles[i].x;
+      double dist_y = lm_y - particles[i].y;
+      double dist = sqrt(pow(dist_x, 2) + pow(dist_y, 2));
+
+      if (dist < sensor_range) {
+        LandmarkObs landmark_within_range = {
+          map_landmarks.landmark_list[j].id_i,
+          lm_x,
+          lm_y,
+        };
+
+        landmarks_within_range.push_back(landmark_within_range);
+      }
+    }
+
+    dataAssociation(landmarks_within_range, trans_observations);
+
+    double particle_weight = 1;
+
+    for(unsigned int j = 0; j < trans_observations.size(); ++j) {
+      double x = trans_observations[j].x - landmarks_within_range[j].x;
+      double y = trans_observations[j].y - landmarks_within_range[j].y;
+      double exponent1 = (pow(x, 2) / (2 * pow(std_landmark[0], 2)));
+      double exponent2 = (pow(y, 2) / (2 * pow(std_landmark[1], 2)));
+      double exponent = - (exponent1 + exponent2);
+      double weight = w_deno * exp(-exponent);
+      particle_weight *= weight;
+    }
+
+    particles[i].weight = particle_weight;
+    weights[i] = particle_weight;
+  } // For each particle
 }
 
 void ParticleFilter::resample() {
