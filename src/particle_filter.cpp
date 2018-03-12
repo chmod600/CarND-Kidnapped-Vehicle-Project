@@ -5,6 +5,8 @@
  *      Author: Tiffany Huang
  */
 
+// Further Extensions by Akshay Khole
+// Referred Udacity notes, Internet tutorials and mentor notes
 #include <random>
 #include <algorithm>
 #include <iostream>
@@ -25,7 +27,12 @@ using namespace std;
 // Add random Gaussian noise to each particle.
 // NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 void ParticleFilter::init(double gps_x, double gps_y, double theta, double std[]) {
-  num_particles = 100;
+  // Tried several different values for no. of particles
+  // 100, 50, 40, 30, 25, 20.
+  // When 20, the error is too high and the filter fails
+  // When 25, the particle motion is choppy.
+  // Setting to 25 for purposes of this project fast and acceptable
+  num_particles = 25;
   particles.resize(num_particles);
   weights.resize(num_particles);
 
@@ -42,7 +49,7 @@ void ParticleFilter::init(double gps_x, double gps_y, double theta, double std[]
     p.theta = dist_theta(gen);
     p.weight = INIT_PARTICLE_WEIGHT;
     particles[i] = p;
-    weights[i] = p.weight;
+    weights[i] = p.weight; // inits weights vector too
   }
 
   is_initialized = true;
@@ -62,7 +69,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   for(int i = 0; i < num_particles; ++i) {
     Particle *p = &particles[i];
 
-    if(fabs(yaw_rate) < MIN_YAW) {
+    if(fabs(yaw_rate) < MIN_YAW) { // Optimization
       p->x += velocity * delta_t * cos(p->theta);
       p->y += velocity * delta_t * sin(p->theta);
     } else {
@@ -72,6 +79,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
       p->theta = theta;
     }
 
+    // Add noise
     p->x += dist_x(gen);
     p->y += dist_y(gen);
     p->theta += dist_theta(gen);
@@ -127,7 +135,6 @@ void ParticleFilter::updateWeights(double sensor_range,
                                    const std::vector<LandmarkObs> &observations,
                                    const Map &map_landmarks) {
 
-  // 1. Convert observations from Car Co-ordinates to Map Co-ordinates.
   std::vector<LandmarkObs> trans_observations;
   std::vector<LandmarkObs> landmarks_visible_to_particle;
   double std_x = std_landmark[0];
@@ -139,23 +146,23 @@ void ParticleFilter::updateWeights(double sensor_range,
     Particle *p = &particles[i];
     double weight = 1.0;
 
-    for(unsigned int j = 0; j < observations.size(); ++j) {
+    for(unsigned int j = 0; j < observations.size(); ++j) { // For each observation
       LandmarkObs obs = observations[j];
-      LandmarkObs trans_obs;
+      LandmarkObs trans_obs; // Observation transformed into map co-ordinates
 
       trans_obs.x = p->x + (obs.x * cos(p->theta)) - (obs.y * sin(p->theta));
       trans_obs.y = p->y + (obs.x * sin(p->theta)) + (obs.y * cos(p->theta));
       trans_obs.id = obs.id;
 
       Map::single_landmark_s closest_lm;
-      double dist_min = numeric_limits<double>::max();
+      double dist_min = numeric_limits<double>::max(); // Max value
 
       for(unsigned int k = 0; k < map_landmarks.landmark_list.size(); ++k) {
         Map::single_landmark_s current_lm = map_landmarks.landmark_list[k];
         double _dist = dist(trans_obs.x, trans_obs.y, current_lm.x_f, current_lm.y_f);
         if(_dist < dist_min) {
           dist_min = _dist;
-          closest_lm = current_lm;
+          closest_lm = current_lm; // find closest landmark from TOBS
         }
       }
 
@@ -171,6 +178,7 @@ void ParticleFilter::updateWeights(double sensor_range,
     p->weight = weight;
   } // For each particle
 
+  // Normalize the weights
   for(int i = 0; i < num_particles; ++i) {
     Particle *p = &particles[i];
     p->weight /= sum_of_weights;
@@ -187,7 +195,7 @@ void ParticleFilter::resample() {
   discrete_distribution<int> index(weights.begin(), weights.end());
 
   for(unsigned int i = 0; i < particles.size(); ++i) {
-    int j = index(gen);
+    int j = index(gen); // pick randomly from state space
     resampled_particles.push_back(particles[j]);
   }
 
