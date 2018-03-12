@@ -140,7 +140,7 @@ void ParticleFilter::updateWeights(double sensor_range,
     double weight = 1.0;
 
     for(unsigned int j = 0; j < observations.size(); ++j) {
-      LandmarkObs obs;
+      LandmarkObs obs = observations[j];
       LandmarkObs trans_obs;
 
       trans_obs.x = p->x + (obs.x * cos(p->theta)) - (obs.y * sin(p->theta));
