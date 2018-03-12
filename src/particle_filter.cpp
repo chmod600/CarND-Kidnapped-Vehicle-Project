@@ -188,15 +188,7 @@ void ParticleFilter::resample() {
 
   for(unsigned int i = 0; i < particles.size(); ++i) {
     int j = index(gen);
-    Particle p {
-      j,
-      particles[j].x,
-      particles[j].y,
-      particles[i].theta,
-      1
-    };
-
-    resampled_particles.push_back(p);
+    resampled_particles.push_back(particles[j]);
   }
 
   particles = resampled_particles;
